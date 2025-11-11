@@ -1,44 +1,54 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Účinnost – generátor slovních úloh</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="favicon.ico">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Účinnost — generátor slovních úloh (P₀, P)</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="favicon.ico"/>
 </head>
 <body>
   <main class="container">
     <header class="topbar">
-      <div class="brand">⚙️ Účinnost – generátor úloh</div>
-      <div class="muted">W / kW / MW</div>
+      <div class="brand">⚙️ Účinnost — generátor úloh</div>
+      <div class="muted">P₀ (příkon), P (užitečný výkon) • W / kW / MW • desetinná čárka</div>
     </header>
 
+    <section class="layout">
+      <!-- Levý panel: zadání je vidět pořád -->
+      <aside class="card aside">
+        <h2>Zadání</h2>
+        <div id="zadaniText" class="zadani"></div>
+        <div class="note small">Vzorec: <b>η = P / P₀ × 100 %</b></div>
+        <div class="hr"></div>
+        <div id="knownBox" class="small"></div>
+      </aside>
+
+      <!-- Pravý panel: průvodce kroky -->
+      <section class="card flow">
+        <div class="steps">
+          <div class="step active" data-step="0"><span>1</span> Zadání</div>
+          <div class="step" data-step="1"><span>2</span> Zápis</div>
+          <div class="step" data-step="2"><span>3</span> Výpočet</div>
+          <div class="step" data-step="3"><span>4</span> Odpověď</div>
+        </div>
+
+        <div id="screen"></div>
+
+        <div class="row between actions">
+          <button id="btnBack" class="ghost">← Zpět</button>
+          <div class="row gap">
+            <button id="btnCheck" class="primary">✔ Zkontrolovat</button>
+            <button id="btnNext">Pokračovat →</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
     <section class="card intro">
-      <h1>Procvičování: účinnost</h1>
-      <p class="muted">Aplikace generuje slovní úlohy a vede žáka krokově: <b>Zadání → Zápis → Výpočet → Odpověď</b>. Jednotky jsou ve výkonech (W, kW, MW).</p>
       <div class="row gap">
         <button id="btnNew" class="primary">➕ Nová úloha</button>
         <button id="btnReset" class="ghost">↺ Reset</button>
-      </div>
-    </section>
-
-    <section class="card flow">
-      <div class="steps">
-        <div class="step active" data-step="0"><span>1</span> Zadání</div>
-        <div class="step" data-step="1"><span>2</span> Zápis</div>
-        <div class="step" data-step="2"><span>3</span> Výpočet</div>
-        <div class="step" data-step="3"><span>4</span> Odpověď</div>
-      </div>
-
-      <div id="screen"></div>
-
-      <div class="row between actions">
-        <button id="btnBack" class="ghost">← Zpět</button>
-        <div class="row gap">
-          <button id="btnCheck" class="primary">✔ Zkontrolovat</button>
-          <button id="btnNext">Pokračovat →</button>
-        </div>
       </div>
     </section>
 
@@ -51,7 +61,7 @@
       </div>
     </section>
 
-    <footer class="footer">© <span id="year"></span> Cvičebnice účinnosti. Generátor úloh – čisté HTML, CSS, JS.</footer>
+    <footer class="footer">© <span id="year"></span> Cvičebnice účinnosti. P₀/P generátor — čisté HTML, CSS, JS.</footer>
   </main>
 
   <script src="script.js"></script>
