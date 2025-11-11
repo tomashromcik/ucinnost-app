@@ -6,8 +6,7 @@
   <title>Účinnost — generátor slovních úloh (P₀, P)</title>
   <link rel="stylesheet" href="style.css"/>
   <link rel="icon" href="favicon.ico"/>
-</head>
-<body>
+</head><body>
   <main class="container">
     <header class="topbar">
       <div class="brand">⚙️ Účinnost — generátor úloh</div>
@@ -15,7 +14,7 @@
     </header>
 
     <section class="layout">
-      <!-- Levý panel: zadání je vidět pořád -->
+      <!-- Levý panel: ZADÁNÍ (používá #zadaniText a #knownBox) -->
       <aside class="card aside">
         <h2>Zadání</h2>
         <div id="zadaniText" class="zadani"></div>
@@ -24,7 +23,7 @@
         <div id="knownBox" class="small"></div>
       </aside>
 
-      <!-- Pravý panel: průvodce kroky -->
+      <!-- Pravý panel: kroky + obsah (používá #btnBack, #btnNext, #btnCheck, #screen) -->
       <section class="card flow">
         <div class="steps">
           <div class="step active" data-step="0"><span>1</span> Zadání</div>
@@ -64,6 +63,8 @@
     <footer class="footer">© <span id="year"></span> Cvičebnice účinnosti. P₀/P generátor — čisté HTML, CSS, JS.</footer>
   </main>
 
-  <script src="script.js"></script>
+  <!-- DŮLEŽITÉ: defer, aby se JS spustil po parsování DOMu -->
+  <script src="script.js" defer></script>
 </body>
+
 </html>
