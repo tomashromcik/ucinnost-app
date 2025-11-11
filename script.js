@@ -420,19 +420,20 @@ function wire(){
 }
 
 // ——— Start: jistota DOMContentLoaded ———
-function init(){
+function init() {
   log("init()");
-  const y = $('#year'); if (y) y.textContent = new Date().getFullYear();
+  const y = $('#year');
+  if (y) y.textContent = new Date().getFullYear();
   problem = makeProblem();
   render();
   setStats();
   wire();
-  // pro ladění v konzoli:
-  window.__ucinnost = { get step(){return step;}, get problem(){return problem;}, stats };
+  // pro ladění v konzoli
+  window.__ucinnost = {
+    get step() { return step; },
+    get problem() { return problem; },
+    stats
+  };
   log("window.__ucinnost dostupné", window.__ucinnost);
 }
-if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', ()=>{ log("DOMContentLoaded"); init(); });
-} else {
-  // skript je nejspíš už na konci <body>, ale pro jistotu…
- }
+
