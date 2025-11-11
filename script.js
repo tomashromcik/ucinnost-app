@@ -1,6 +1,20 @@
 // Účinnost – generátor slovních úloh (P₀, P) s podrobným logováním
 // Pozn.: čísla lze psát s čárkou; vše je "null-safe"; DOM se drátuje až po DOMContentLoaded.
 
+document.addEventListener('DOMContentLoaded', () => {
+  console.info('[UCINNOST] DOMContentLoaded');
+  setTimeout(() => {
+    if (typeof init === 'function') {
+      console.info('[UCINNOST] init() spouštím po načtení DOM');
+      init();
+    } else {
+      console.error('[UCINNOST] Funkce init() není definována!');
+    }
+  }, 100);
+});
+
+
+
 const $ = (id) => document.getElementById(id);
 const log = (...a) => console.log("[UCINNOST]", ...a);
 const warn = (...a) => console.warn("[UCINNOST][WARN]", ...a);
