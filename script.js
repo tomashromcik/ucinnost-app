@@ -435,5 +435,4 @@ if (document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', ()=>{ log("DOMContentLoaded"); init(); });
 } else {
   // skript je nejspíš už na konci <body>, ale pro jistotu…
-  init();
-}
+ }
