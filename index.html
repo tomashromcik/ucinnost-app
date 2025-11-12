@@ -20,11 +20,12 @@
         <h2>Zadání</h2>
         <div class="note small">Vzorec: <b>η = P / P₀ × 100 %</b></div>
         <div class="hr"></div>
+        <!-- Sem skript zapisuje text zadání a přehled daných veličin -->
         <div id="zadaniText" class="zadani"></div>
         <div id="knownBox" class="small"></div>
       </aside>
 
-      <!-- Pravý panel -->
+      <!-- Pravý panel: kroky + obsah + ovládání -->
       <section class="card flow">
         <div class="steps">
           <div class="step active" data-step="0"><span>1</span> Zadání</div>
@@ -33,10 +34,8 @@
           <div class="step" data-step="3"><span>4</span> Odpověď</div>
         </div>
 
-        <!-- obsah kroků -->
-  <!-- obsah kroků -->
-<div id="content" class="card"></div>
-
+        <!-- Obsah jednotlivých kroků renderuje JS sem -->
+        <div id="content" class="card"></div>
 
         <div class="row between actions">
           <button id="btnBack" class="ghost">← Zpět</button>
@@ -48,6 +47,7 @@
       </section>
     </section>
 
+    <!-- Tlačítka pro vytvoření nové úlohy & reset statistik -->
     <section class="card intro">
       <div class="row gap">
         <button id="btnNew" class="primary">➕ Nová úloha</button>
@@ -55,6 +55,7 @@
       </div>
     </section>
 
+    <!-- Statistiky -->
     <section class="card results">
       <h2>Výsledky a statistika</h2>
       <div class="grid3">
@@ -67,7 +68,7 @@
     <footer class="footer">© <span id="year"></span> Cvičebnice účinnosti. P₀/P generátor — čisté HTML, CSS, JS.</footer>
   </main>
 
-  <!-- DŮLEŽITÉ: defer -->
+  <!-- DŮLEŽITÉ: skript s defer, aby běžel po načtení DOM -->
   <script src="script.js" defer></script>
 </body>
 </html>
