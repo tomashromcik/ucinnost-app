@@ -172,3 +172,28 @@ document.addEventListener('DOMContentLoaded', () => {
     content: !!$('#content'), knownBox: !!$('#knownBox'), zadaniText: !!$('#zadaniText')
   });
 });
+
+function ensureAsideTargets() {
+  const aside = document.querySelector('.aside');
+  if (!aside) { warn('Levý panel .aside nenalezen'); return; }
+
+  let zad = document.getElementById('zadaniText');
+  if (!zad) {
+    zad = document.createElement('div');
+    zad.id = 'zadaniText';
+    zad.className = 'zadani';
+    aside.appendChild(zad);
+    log('Dynamicky vytvořen #zadaniText v levém panelu');
+  }
+
+  let kb = document.getElementById('knownBox');
+  if (!kb) {
+    kb = document.createElement('div');
+    kb.id = 'knownBox';
+    kb.className = 'small';
+    aside.appendChild(kb);
+    log('Dynamicky vytvořen #knownBox v levém panelu');
+  }
+}
+
+
