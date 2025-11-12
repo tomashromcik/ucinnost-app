@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 50);
 });
 
-const $ = (id) => document.getElementById(id);
+const $    = (id)   => document.getElementById(id);
 const log  = (...a) => console.log('[UCINNOST]', ...a);
 const warn = (...a) => console.warn('[UCINNOST][WARN]', ...a);
 
@@ -44,7 +44,73 @@ const pick = (min,max)=> min + Math.random()*(max-min);
 const pickInt = (min,max)=> Math.round(pick(min,max));
 const choose = (arr)=> arr[Math.floor(Math.random()*arr.length)];
 
-// generování úlohy
+// ———————————————————————————————————————————
+// 1) AUTOFIX DOMU: doplníme chybějící prvky
+// ———————————————————————————————————————————
+function ensureContentHost(){
+  let host = $('#content');
+  if (host) return host;
+
+  warn('Nenalezen #content – vytvořím ho dynamicky');
+  const flow = document.querySelector('.flow');
+  if (!flow){ warn('Nenalezena .flow – nemám kam vložit #content'); return null; }
+
+  const actions = flow.querySelector('.actions');
+  host = document.createElement('div');
+  host.id = 'content';
+  if (actions) flow.insertBefore(host, actions);
+  else flow.appendChild(host);
+  return host;
+}
+
+function ensureAsideBoxes(){
+  const aside = document.querySelector('.aside');
+  if (!aside){ warn('Nenalezena .aside'); return; }
+
+  let zad = $('#zadaniText');
+  if (!zad){
+    warn('Nenalezen #zadaniText – vytvořím ho');
+    zad = document.createElement('div');
+    zad.id = 'zadaniText';
+    zad.className = 'zadani';
+    // vložím ho za .hr pokud existuje, jinak na konec aside
+    const hr = aside.querySelector('.hr');
+    if (hr && hr.parentNode) hr.parentNode.insertBefore(zad, hr.nextSibling);
+    else aside.appendChild(zad);
+  }
+
+  let known = $('#knownBox');
+  if (!known){
+    warn('Nenalezen #knownBox – vytvořím ho');
+    known = document.createElement('div');
+    known.id = 'knownBox';
+    known.className = 'small';
+    aside.appendChild(known);
+  }
+}
+
+function ensureActionButtons(){
+  const actions = document.querySelector('.actions');
+  if (!actions){ warn('Nenalezena .actions'); return; }
+
+  // očekáváme 3 tlačítka: Zpět | Zkontrolovat | Pokračovat
+  // pokud nemají ID, přidělíme:
+  let back  = $('#btnBack')  || actions.querySelector('button.ghost') || actions.querySelector('button');
+  let check = $('#btnCheck') || actions.querySelector('button.primary');
+  let next  = $('#btnNext')  || actions.querySelectorAll('button')[actions.querySelectorAll('button').length-1];
+
+  if (back  && !back.id)  back.id  = 'btnBack';
+  if (check && !check.id) check.id = 'btnCheck';
+  if (next  && !next.id)  next.id  = 'btnNext';
+
+  if (!$('#btnBack'))  warn('Po autofixu stále chybí #btnBack');
+  if (!$('#btnCheck')) warn('Po autofixu stále chybí #btnCheck');
+  if (!$('#btnNext'))  warn('Po autofixu stále chybí #btnNext');
+}
+
+// ———————————————————————————————————————————
+// 2) GENERÁTOR ÚLOHY
+// ———————————————————————————————————————————
 function makeProblem(){
   const dev  = choose(DEVICES);
   const type = choose(['eta','P','P0']);
@@ -70,25 +136,9 @@ function makeProblem(){
   return p;
 }
 
-// pomocná funkce: když chybí #content, vytvoř ho
-function ensureContentHost(){
-  let host = $('#content');
-  if (host) return host;
-
-  warn('Nenalezen #content – vytvořím ho dynamicky');
-  const flow = document.querySelector('.flow');
-  if (!flow){ warn('Nenalezena .flow – nemám kam vložit obsah'); return null; }
-
-  // vložíme #content před panel s tlačítky .actions
-  const actions = flow.querySelector('.actions');
-  host = document.createElement('div');
-  host.id = 'content';
-  if (actions) flow.insertBefore(host, actions);
-  else flow.appendChild(host);
-  return host;
-}
-
-// UI
+// ———————————————————————————————————————————
+// 3) RENDER
+// ———————————————————————————————————————————
 function setStepVisual(){
   document.querySelectorAll('.step').forEach((el,i)=> el.classList.toggle('active', i===step));
   const back = $('#btnBack'), next = $('#btnNext');
@@ -112,7 +162,7 @@ function renderAside(){
 
 function render(){
   log('render(step)', step);
-  setStepVisual(); 
+  setStepVisual();
   renderAside();
 
   const content = ensureContentHost();
@@ -182,6 +232,9 @@ function setStats(){
 
 // ovládání
 function wire(){
+  // přidělíme ID i když v HTML nebyla
+  ensureActionButtons();
+
   const on = (id, fn)=>{
     const el = $(id);
     if (!el) { warn('wire: nenalezen', id); return; }
@@ -197,11 +250,19 @@ function wire(){
 // init
 function init(){
   log('init()');
+
+  // 1) jistota DOMu
+  ensureAsideBoxes();
+  ensureContentHost();
+
+  // 2) data + render + drátování
   const y = $('#year'); if (y) y.textContent = new Date().getFullYear();
   problem = makeProblem();
   render();
   setStats();
   wire();
+
+  // ladění
   window.__ucinnost = { get step(){return step;}, get problem(){return problem;}, stats };
   log('window.__ucinnost dostupné', window.__ucinnost);
 }
