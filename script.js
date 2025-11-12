@@ -47,7 +47,6 @@ function makeProblem(){
   return {device:dev,type,P0W,PW,eta,P0,P,text,ask};
 }
 
-// vykreslení levého panelu
 function renderAside(){
   const zad=$('#zadaniText'),kb=$('#knownBox');
   if(zad){
@@ -92,15 +91,17 @@ function render(){
       <input id="eta" class="input" placeholder="např. 75">
       <div id="calcMsg" class="small"></div>`;
 
-    // delegace kliků
+    // delegace kliků na symboly
     const wrap=c.querySelector('.inline-buttons');
-    wrap.addEventListener('click',ev=>{
-      const b=ev.target.closest('button[data-ins]');if(!b)return;
-      const f=$('#formula');if(!f)return;
-      const ins=b.dataset.ins,pos=f.selectionStart??f.value.length;
-      f.value=f.value.slice(0,pos)+ins+f.value.slice(pos);
-      f.focus();f.selectionStart=f.selectionEnd=pos+ins.length;
-    });
+    if (wrap) {
+      wrap.addEventListener('click',ev=>{
+        const b=ev.target.closest('button[data-ins]');if(!b)return;
+        const f=$('#formula');if(!f)return;
+        const ins=b.dataset.ins,pos=f.selectionStart??f.value.length;
+        f.value=f.value.slice(0,pos)+ins+f.value.slice(pos);
+        f.focus();f.selectionStart=f.selectionEnd=pos+ins.length;
+      });
+    }
     return;
   }
 
@@ -114,30 +115,32 @@ function render(){
 }
 
 function setStats(){
-  $('#okCount').textContent=stats.ok;
-  $('#errCount').textContent=stats.err;
-  $('#avgAcc').textContent=stats.accN?(stats.accSum/stats.accN).toFixed(1).replace('.',',')+' %':'–';
+  const ok=$('#okCount'), er=$('#errCount'), av=$('#avgAcc');
+  if(ok) ok.textContent=stats.ok;
+  if(er) er.textContent=stats.err;
+  if(av) av.textContent=stats.accN?(stats.accSum/stats.accN).toFixed(1).replace('.',',')+' %':'–';
 }
 
 function check(){
   if(step===1){
-    const e=$('#writeMsg');
-    e.textContent='✅ Zápis OK (jen demo ověření)';
+    const e=$('#writeMsg'); if (e) e.innerHTML='<span class="success">✅ Zápis OK (demo ověření)</span>';
     stats.ok++;setStats();return;
   }
   if(step===2){
-    const f=$('#formula').value.replace(/\s+/g,'');
+    const f=($('#formula')?.value||'').replace(/\s+/g,'');
     const e=$('#calcMsg');
-    if(f==='η=P/P₀'||f==='η=P:P₀') e.innerHTML='<span class="success">✅ Správný vzorec!</span>';
-    else e.innerHTML='<span class="error">❌ Nesprávný vzorec</span>';
+    if(e) e.innerHTML=(f==='η=P/P₀'||f==='η=P:P₀')
+      ? '<span class="success">✅ Správný vzorec!</span>'
+      : '<span class="error">❌ Nesprávný vzorec</span>';
     return;
   }
   if(step===3){
-    const v=$('#ansVal').value.trim();
-    const u=$('#ansUnit').value;
+    const v=$('#ansVal')?.value.trim();
+    const u=$('#ansUnit')?.value;
     const e=$('#ansMsg');
-    if(!v)e.innerHTML='<span class="error">Doplň hodnotu</span>';
-    else e.innerHTML='<span class="success">✅ Hotovo ('+v+' '+u+')</span>';
+    if(!e) return;
+    if(!v) e.innerHTML='<span class="error">Doplň hodnotu</span>';
+    else   e.innerHTML='<span class="success">✅ Hotovo ('+v+' '+u+')</span>';
   }
 }
 
@@ -151,7 +154,10 @@ function wire(){
 }
 
 function init(){
-  $('#year').textContent=new Date().getFullYear();
+  // Bezpečně – #year nemusí existovat
+  const y = $('#year'); 
+  if (y) y.textContent = new Date().getFullYear();
+
   problem=makeProblem();
   renderAside();
   render();
