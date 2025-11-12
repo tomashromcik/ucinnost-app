@@ -264,18 +264,26 @@ function wire(){
 function init(){
   log('init()');
 
-  // 1) jistota DOMu
+  // 1) jistota DOMu – vytvořím chybějící boxy a #content
   ensureAsideBoxes();
   ensureContentHost();
+  ensureActionButtons();   // tlačítka dřív, než poprvé renderujeme
 
-  // 2) data + render + drátování
-  const y = $('#year'); if (y) y.textContent = new Date().getFullYear();
+  // 2) data
+  const y = document.getElementById('year');
+  if (y) y.textContent = new Date().getFullYear();
   problem = makeProblem();
-  render();
+
+  // 3) hned po vygenerování explicitně zapiš zadání do levého panelu
+  renderAside();
+
+  // 4) pravý panel + statistiky
   setStats();
+  render();
+
+  // 5) ovládací prvky až na hotový DOM
   wire();
 
-  // ladění
   window.__ucinnost = { get step(){return step;}, get problem(){return problem;}, stats };
   log('window.__ucinnost dostupné', window.__ucinnost);
 }
