@@ -1,14 +1,9 @@
-// Bezpečný start po DOMContentLoaded
+// === Účinnost – generátor slovních úloh (W/kW/MW, desetinná čárka) ===
+// Vylepšení: stabilní host #content, plná kontrola btnCheck, pevné pořadí init.
+
 document.addEventListener('DOMContentLoaded', () => {
   console.info('[UCINNOST] DOMContentLoaded');
-  setTimeout(() => {
-    if (typeof init === 'function') {
-      console.info('[UCINNOST] init() spouštím po načtení DOM');
-      init();
-    } else {
-      console.error('[UCINNOST] Funkce init() není definována!');
-    }
-  }, 50);
+  setTimeout(() => init(), 30);
 });
 
 const $    = (id)   => document.getElementById(id);
@@ -44,20 +39,23 @@ const pick = (min,max)=> min + Math.random()*(max-min);
 const pickInt = (min,max)=> Math.round(pick(min,max));
 const choose = (arr)=> arr[Math.floor(Math.random()*arr.length)];
 
-// ———————————————————————————————————————————
-// 1) AUTOFIX DOMU: doplníme chybějící prvky
-// ———————————————————————————————————————————
+// ── AUTOFIX DOMU ──────────────────────────────────────────────────────
 function ensureContentHost(){
+  // smaž duplicitní #content (pro případ starých běhů)
+  document.querySelectorAll('#content').forEach((n,i)=>{
+    if (i>0) n.remove();
+  });
+
   let host = $('#content');
   if (host) return host;
 
-  warn('Nenalezen #content – vytvořím ho dynamicky');
   const flow = document.querySelector('.flow');
   if (!flow){ warn('Nenalezena .flow – nemám kam vložit #content'); return null; }
 
   const actions = flow.querySelector('.actions');
   host = document.createElement('div');
   host.id = 'content';
+  // vlož před .actions, jinak na konec .flow
   if (actions) flow.insertBefore(host, actions);
   else flow.appendChild(host);
   return host;
@@ -73,7 +71,6 @@ function ensureAsideBoxes(){
     zad = document.createElement('div');
     zad.id = 'zadaniText';
     zad.className = 'zadani';
-    // vložím ho za .hr pokud existuje, jinak na konec aside
     const hr = aside.querySelector('.hr');
     if (hr && hr.parentNode) hr.parentNode.insertBefore(zad, hr.nextSibling);
     else aside.appendChild(zad);
@@ -90,11 +87,11 @@ function ensureAsideBoxes(){
 }
 
 function ensureActionButtons(){
-  const actions = document.querySelector('.actions');
+  const flow = document.querySelector('.flow');
+  if (!flow) return;
+  const actions = flow.querySelector('.actions');
   if (!actions){ warn('Nenalezena .actions'); return; }
 
-  // očekáváme 3 tlačítka: Zpět | Zkontrolovat | Pokračovat
-  // pokud nemají ID, přidělíme:
   let back  = $('#btnBack')  || actions.querySelector('button.ghost') || actions.querySelector('button');
   let check = $('#btnCheck') || actions.querySelector('button.primary');
   let next  = $('#btnNext')  || actions.querySelectorAll('button')[actions.querySelectorAll('button').length-1];
@@ -102,15 +99,9 @@ function ensureActionButtons(){
   if (back  && !back.id)  back.id  = 'btnBack';
   if (check && !check.id) check.id = 'btnCheck';
   if (next  && !next.id)  next.id  = 'btnNext';
-
-  if (!$('#btnBack'))  warn('Po autofixu stále chybí #btnBack');
-  if (!$('#btnCheck')) warn('Po autofixu stále chybí #btnCheck');
-  if (!$('#btnNext'))  warn('Po autofixu stále chybí #btnNext');
 }
 
-// ———————————————————————————————————————————
-// 2) GENERÁTOR ÚLOHY
-// ———————————————————————————————————————————
+// ── GENERÁTOR ÚLOHY ───────────────────────────────────────────────────
 function makeProblem(){
   const dev  = choose(DEVICES);
   const type = choose(['eta','P','P0']);
@@ -121,7 +112,7 @@ function makeProblem(){
 
   let text="", ask="";
   if(type==='eta'){
-    text = `${dev.name} odebírá příkon P₀ = ${formatComma(P0.v)} ${P0.u}. Užitečný výkon je P = ${formatComma(P.v)} ${P.u}. Urči účinnost zařízení.`;
+    text = `${dev.name} pracuje s účinností η = ${eta} %. Odebírá příkon P₀ = ${formatComma(P0.v)} ${P0.u}. Dodává užitečný výkon P = ${formatComma(P.v)} ${P.u}. Urči účinnost zařízení.`;
     ask  = 'Vypočítej účinnost η v procentech.';
   } else if(type==='P'){
     text = `${dev.name} pracuje s účinností η = ${eta} %. Odebírá příkon P₀ = ${formatComma(P0.v)} ${P0.u}. Urči užitečný výkon P.`;
@@ -136,27 +127,22 @@ function makeProblem(){
   return p;
 }
 
-// ———————————————————————————————————————————
-// 3) RENDER
-// ———————————————————————————————————————————
+// ── RENDER ────────────────────────────────────────────────────────────
 function setStepVisual(){
   document.querySelectorAll('.step').forEach((el,i)=> el.classList.toggle('active', i===step));
   const back = $('#btnBack'), next = $('#btnNext');
-  if (!back) warn('Nenalezen #btnBack'); else back.disabled = (step===0);
-  if (!next) warn('Nenalezen #btnNext'); else next.disabled = (step===3);
+  if (back) back.disabled = (step===0);
+  if (next) next.disabled = (step===3);
 }
-function renderAside(){
-  const zad = document.getElementById('zadaniText');
-  const kb  = document.getElementById('knownBox');
 
-  if (!zad) warn('Nenalezen #zadaniText');
-  if (!kb)  warn('Nenalezen #knownBox');
+function renderAside(){
+  const zad = $('#zadaniText');
+  const kb  = $('#knownBox');
 
   if (zad) {
     const text = problem ? `${problem.text}\n\nÚkol: ${problem.ask}` : '';
     zad.style.display   = 'block';
     zad.style.visibility = 'visible';
-    // nahradíme \n -> <br> kvůli zalomení
     zad.innerHTML = (text || '').replace(/\n/g, '<br>');
     log('renderAside(): zapsán text, length =', (text || '').length);
   }
@@ -171,7 +157,6 @@ function renderAside(){
     kb.innerHTML     = `<b>Dané:</b> ${known}`;
   }
 }
-
 
 function render(){
   log('render(step)', step);
@@ -214,28 +199,117 @@ function render(){
       </div>
       <p class="small">Opíšete pouze <b>dané</b> hodnoty ze zadání. Neznámé nevyplňujte.</p>
       <div id="writeMsg" class="small"></div>`;
+
+    // předvyplnit jednotky/placeholdery
+    const p0U = $('#p0Unit'), pU = $('#pUnit'), p0V = $('#p0Val'), pV = $('#pVal'), eW = $('#etaWrite');
+    if (p0U) p0U.value = problem.P0.u;
+    if (pU)  pU.value  = problem.P.u;
+    if (p0V) p0V.placeholder = (problem.type==='P0') ? '?' : formatComma(problem.P0.v);
+    if (pV)  pV.placeholder  = (problem.type==='P')  ? '?' : formatComma(problem.P.v);
+    if (eW)  eW.placeholder  = (problem.type==='eta')? '?' : String(problem.eta);
     return;
   }
 
   if (step===2){
-    content.innerHTML = `<h2>3. Výpočet</h2><p class="small">Zapiš vzorec a spočítej neznámou veličinu (η, P nebo P₀).</p><div id="calcMsg" class="small"></div>`;
+    const zapis = [
+      (problem.type!=='P0') ? `P₀ = ${formatComma(problem.P0.v)} ${problem.P0.u}` : 'P₀ = ?',
+      (problem.type!=='P')  ? `P = ${formatComma(problem.P.v)} ${problem.P.u}`   : 'P = ?',
+      (problem.type!=='eta')? `η = ${problem.eta} %` : 'η = ?'
+    ].join(' • ');
+
+    const formulaHelp = (problem.type==='eta')
+      ? 'η = P / P₀ (povolené i "η = P : P₀")'
+      : (problem.type==='P')
+        ? 'P = η · P₀ (η v desetinném tvaru, např. 0,75) nebo P = (η : 100) · P₀'
+        : 'P₀ = P / η (η v desetinném tvaru) nebo P₀ = P : (η : 100)';
+
+    let inner='';
+    if (problem.type==='eta'){
+      inner = `
+        <div class="badge wip"><b>Zápis:</b> ${zapis}</div>
+        <div class="inline-buttons">
+          <button data-ins="η">η</button><button data-ins="P">P</button><button data-ins="P₀">P₀</button>
+          <button data-ins=" / ">/</button><button data-ins=" : ">:</button><button data-ins=" = ">=</button>
+        </div>
+        <label>Zapiš vzorec</label>
+        <input id="formula" class="input" type="text" placeholder="${formulaHelp}">
+        <label>Výsledek — η (%)</label>
+        <input id="eta" class="input" type="text" inputmode="decimal" placeholder="např. 75">`;
+    } else if (problem.type==='P'){
+      inner = `
+        <div class="badge wip"><b>Zápis:</b> ${zapis}</div>
+        <div class="inline-buttons">
+          <button data-ins="η">η</button><button data-ins="P">P</button><button data-ins="P₀">P₀</button>
+          <button data-ins=" · ">·</button><button data-ins=" / ">/</button><button data-ins=" : ">:</button><button data-ins=" = ">=</button>
+        </div>
+        <label>Zapiš vzorec</label>
+        <input id="formula" class="input" type="text" placeholder="${formulaHelp}">
+        <label>Výsledek — P</label>
+        <div class="row gap">
+          <input id="pCalc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
+          <select id="pCalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
+        </div>`;
+    } else {
+      inner = `
+        <div class="badge wip"><b>Zápis:</b> ${zapis}</div>
+        <div class="inline-buttons">
+          <button data-ins="η">η</button><button data-ins="P">P</button><button data-ins="P₀">P₀</button>
+          <button data-ins=" · ">·</button><button data-ins=" / ">/</button><button data-ins=" : ">:</button><button data-ins=" = ">=</button>
+        </div>
+        <label>Zapiš vzorec</label>
+        <input id="formula" class="input" type="text" placeholder="${formulaHelp}">
+        <label>Výsledek — P₀</label>
+        <div class="row gap">
+          <input id="p0Calc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
+          <select id="p0CalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
+        </div>`;
+    }
+    content.innerHTML = `<h2>3. Výpočet</h2>${inner}<div id="calcMsg" class="small"></div>`;
+    if ($('#pCalcUnit'))  $('#pCalcUnit').value  = problem.P.u;
+    if ($('#p0CalcUnit')) $('#p0CalcUnit').value = problem.P0.u;
+
+    // vkládání symbolů + auto η
+    document.querySelectorAll('.inline-buttons button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const f = $('#formula'); if(!f){ warn('Chybí #formula'); return; }
+        const ins = b.getAttribute('data-ins') || '';
+        const pos = f.selectionStart || f.value.length;
+        f.value = (f.value.slice(0,pos) + ins + f.value.slice(pos));
+        f.focus(); f.selectionStart = f.selectionEnd = pos + ins.length;
+      });
+    });
     return;
   }
 
   if (step===3){
+    const zapis = [
+      (problem.type!=='P0') ? `P₀ = ${formatComma(problem.P0.v)} ${problem.P0.u}` : 'P₀ = ?',
+      (problem.type!=='P')  ? `P = ${formatComma(problem.P.v)} ${problem.P.u}`   : 'P = ?',
+      (problem.type!=='eta')? `η = ${problem.eta} %` : 'η = ?'
+    ].join(' • ');
+    const template =
+      (problem.type==='eta') ? `Účinnost ${problem.device.name.toLowerCase()} je __ %.` :
+      (problem.type==='P')   ? `Užitečný výkon zařízení je __.` :
+                               `Celkový příkon zařízení je __.`;
+    const unitSuggestion = (problem.type==='eta') ? '%' :
+      (problem.type==='P')  ? problem.P.u : problem.P0.u;
+
     content.innerHTML = `
       <h2>4. Odpověď</h2>
-      <div class="badge ok"><b>Tip:</b> Odpověď zapiš ve tvaru „Užitečný výkon je …“ nebo „Účinnost je … %“.</div>
+      <div class="badge ok"><b>Zápis:</b> ${zapis}</div>
+      <label>Šablona odpovědi</label>
+      <div class="note">${template.replace('__', '<b id="placeholder">[doplň výsledek]</b>')}</div>
       <div class="row gap" style="margin-top:8px">
         <input id="ansVal" class="input" type="text" inputmode="decimal" placeholder="výsledek">
         <select id="ansUnit" class="input"><option>%</option><option>W</option><option>kW</option><option>MW</option></select>
       </div>
       <div id="ansMsg" class="small"></div>`;
+    const ansUnit = $('#ansUnit'); if (ansUnit) ansUnit.value = unitSuggestion;
     return;
   }
 }
 
-// statistiky (zatím jen vykreslení)
+// ── KONTROLA ──────────────────────────────────────────────────────────
 function setStats(){
   const ok=$('#okCount'), er=$('#errCount'), av=$('#avgAcc');
   if (ok) ok.textContent = stats.ok;
@@ -243,45 +317,124 @@ function setStats(){
   if (av) av.textContent = stats.accN ? (stats.accSum/stats.accN).toFixed(1).replace('.', ',')+' %' : '–';
 }
 
-// ovládání
-function wire(){
-  // přidělíme ID i když v HTML nebyla
-  ensureActionButtons();
+function check(){
+  log('check(step)', step);
 
+  if (step===1){
+    const p0v=$('#p0Val'), p0u=$('#p0Unit');
+    const pv=$('#pVal'),   pu=$('#pUnit');
+    const et=$('#etaWrite');
+    const box=$('#writeMsg'); if (!box){ warn('Chybí #writeMsg'); return false; }
+
+    let ok=true, msg=[];
+
+    if (problem.type!=='P0'){
+      const want = problem.P0.v*F[problem.P0.u];
+      const got  = toNumber(p0v && p0v.value) * F[(p0u && p0u.value) || 'W'];
+      if (!(isFinite(got) && Math.abs(got-want) <= Math.max(1e-6, want*0.001))) { ok=false; msg.push('P₀ neodpovídá zadání.'); }
+    } else if (p0v && p0v.value.trim()!==''){ ok=false; msg.push('P₀ v zadání chybí – nevyplňuj.'); }
+
+    if (problem.type!=='P'){
+      const want = problem.P.v*F[problem.P.u];
+      const got  = toNumber(pv && pv.value) * F[(pu && pu.value) || 'W'];
+      if (!(isFinite(got) && Math.abs(got-want) <= Math.max(1e-6, want*0.001))) { ok=false; msg.push('P neodpovídá zadání.'); }
+    } else if (pv && pv.value.trim()!==''){ ok=false; msg.push('P v zadání chybí – nevyplňuj.'); }
+
+    if (problem.type!=='eta'){
+      const got = toNumber(et && et.value);
+      if (!(isFinite(got) && Math.abs(got - problem.eta) <= Math.max(1e-6, problem.eta*0.001))) { ok=false; msg.push('η neodpovídá zadání.'); }
+    } else if (et && et.value.trim()!==''){ ok=false; msg.push('η v zadání chybí – nevyplňuj.'); }
+
+    box.innerHTML = ok ? '<span class="success">✅ Zápis odpovídá zadání.</span>'
+                       : '<span class="error">❌ '+msg.join(' ')+'</span>';
+    return ok;
+  }
+
+  if (step===2){
+    const tol=0.005; const box=$('#calcMsg'); if(!box){ warn('Chybí #calcMsg'); return false; }
+
+    const formulaEl = $('#formula'); const f = formulaEl ? formulaEl.value.replace(/\s+/g,'') : '';
+    let goodFormula=false, ok=false, acc=0, msg='';
+
+    if (problem.type==='eta') goodFormula = (f==='η=P/P₀' || f==='η=P:P₀');
+    if (problem.type==='P')   goodFormula = (f==='P=η·P₀' || f==='P=(η:100)·P₀' || f==='P=η*P₀');
+    if (problem.type==='P0')  goodFormula = (f==='P₀=P/η' || f==='P₀=P:(η:100)');
+
+    if (problem.type==='eta'){
+      const v = toNumber($('#eta') && $('#eta').value);
+      if (isFinite(v)){ acc = 100 - Math.min(100, Math.abs(v - problem.eta)); ok = Math.abs(v - problem.eta) <= Math.max(1e-6, problem.eta*tol); }
+      msg = (goodFormula && ok)
+        ? `✅ Vzorec i výpočet v pořádku. η = ${formatComma(problem.eta)} %`
+        : !goodFormula ? '❌ Zapiš správný vzorec.' : `❌ Nesouhlasí výsledek. Očekává se ~${formatComma(problem.eta)} %.`;
+    } else if (problem.type==='P'){
+      const v = toNumber($('#pCalc') && $('#pCalc').value);
+      const u = ($('#pCalcUnit') && $('#pCalcUnit').value) || 'W';
+      const got = v * F[u], want = problem.PW;
+      if (isFinite(got)){ acc = 100 - Math.min(100, Math.abs(got - want)/want*100); ok = Math.abs(got - want) <= Math.max(1e-6, want*tol); }
+      msg = (goodFormula && ok)
+        ? `✅ Vzorec i výpočet v pořádku. P = ${fmtW(want)}`
+        : !goodFormula ? '❌ Zapiš správný vzorec.' : `❌ Nesouhlasí výsledek. Očekává se ~${fmtW(want)}.`;
+    } else {
+      const v = toNumber($('#p0Calc') && $('#p0Calc').value);
+      const u = ($('#p0CalcUnit') && $('#p0CalcUnit').value) || 'W';
+      const got = v * F[u], want = problem.P0W;
+      if (isFinite(got)){ acc = 100 - Math.min(100, Math.abs(got - want)/want*100); ok = Math.abs(got - want) <= Math.max(1e-6, want*tol); }
+      msg = (goodFormula && ok)
+        ? `✅ Vzorec i výpočet v pořádku. P₀ = ${fmtW(want)}`
+        : !goodFormula ? '❌ Zapiš správný vzorec.' : `❌ Nesouhlasí výsledek. Očekává se ~${fmtW(want)}.`;
+    }
+
+    box.innerHTML = ok ? `<span class="success">${msg}</span>` : `<span class="error">${msg}</span>`;
+    if (ok){ stats.ok++; stats.accSum += acc; stats.accN++; } else { stats.err++; }
+    setStats();
+    return ok;
+  }
+
+  if (step===3){
+    const ans = $('#ansVal'), unit = $('#ansUnit'), box = $('#ansMsg');
+    if (!ans||!unit||!box){ warn('Chybí prvky odpovědi'); return false; }
+    const txt = (ans.value||'').trim();
+    const hasNum = txt !== '' && isFinite(toNumber(txt));
+    const valueStr = (unit.value === '%')
+      ? formatComma(problem.eta) + ' %'
+      : (problem.type==='P') ? fmtW(problem.PW) : fmtW(problem.P0W);
+    box.innerHTML = hasNum
+      ? `<span class="success">✅ Odpověď dopsána. Vzor: <i>${valueStr}</i></span>`
+      : `<span class="error">❌ Doplň číselný výsledek (s desetinnou čárkou) a zvol jednotku.</span>`;
+    return hasNum;
+  }
+  return true;
+}
+
+// ── OVLÁDÁNÍ ─────────────────────────────────────────────────────────
+function wire(){
   const on = (id, fn)=>{
     const el = $(id);
     if (!el) { warn('wire: nenalezen', id); return; }
     el.addEventListener('click', (e)=>{ log('klik', id); fn(e); });
   };
-  on('btnNew',  ()=>{ problem = makeProblem(); step=0; render(); });
-  on('btnReset',()=>{ stats={ok:0,err:0,accSum:0,accN:0}; setStats(); problem = makeProblem(); step=0; render(); });
+  on('btnNew',  ()=>{ problem = makeProblem(); renderAside(); step=0; render(); });
+  on('btnReset',()=>{ stats={ok:0,err:0,accSum:0,accN:0}; setStats(); problem = makeProblem(); renderAside(); step=0; render(); });
   on('btnBack', ()=>{ if(step>0){ step--; render(); }});
   on('btnNext', ()=>{ if(step<3){ step++; render(); }});
-  on('btnCheck',()=>{ /* sem později doplníme detailní kontrolu */ });
+  on('btnCheck',()=>{ check(); });
 }
 
-// init
+// ── INIT ─────────────────────────────────────────────────────────────
 function init(){
   log('init()');
-
-  // 1) jistota DOMu – vytvořím chybějící boxy a #content
   ensureAsideBoxes();
   ensureContentHost();
-  ensureActionButtons();   // tlačítka dřív, než poprvé renderujeme
+  ensureActionButtons();
 
-  // 2) data
-  const y = document.getElementById('year');
-  if (y) y.textContent = new Date().getFullYear();
+  const y = $('#year'); if (y) y.textContent = new Date().getFullYear();
   problem = makeProblem();
 
-  // 3) hned po vygenerování explicitně zapiš zadání do levého panelu
+  // zapiš zadání do levého panelu hned teď
   renderAside();
 
-  // 4) pravý panel + statistiky
   setStats();
   render();
-
-  // 5) ovládací prvky až na hotový DOM
   wire();
 
   window.__ucinnost = { get step(){return step;}, get problem(){return problem;}, stats };
