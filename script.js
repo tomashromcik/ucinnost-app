@@ -72,6 +72,7 @@ function makeProblem(){
 
 // Vlevo (zadání)
 function renderAside(){
+    ensureAsideTargets();                      // ← DOPLNĚNO
   if (!problem) return;
   const zad = $('#zadaniText');
   const kb  = $('#knownBox');
