@@ -1,6 +1,4 @@
-// Účinnost – generátor slovních úloh (P₀, P) s podrobným logováním
-// Pozn.: čísla lze psát s čárkou; vše je "null-safe"; DOM se drátuje až po DOMContentLoaded.
-
+// ——— bezpečný start po DOMContentLoaded ———
 document.addEventListener('DOMContentLoaded', () => {
   console.info('[UCINNOST] DOMContentLoaded');
   setTimeout(() => {
@@ -10,16 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       console.error('[UCINNOST] Funkce init() není definována!');
     }
-  }, 100);
+  }, 50);
 });
 
-
-
+// ——— util ———
 const $ = (id) => document.getElementById(id);
-const log = (...a) => console.log("[UCINNOST]", ...a);
-const warn = (...a) => console.warn("[UCINNOST][WARN]", ...a);
+const log  = (...a) => console.log('[UCINNOST]', ...a);
+const warn = (...a) => console.warn('[UCINNOST][WARN]', ...a);
 
-// ——— Pomocné funkce: jednotky, čárka/tečka ———
+// čárka ↔ tečka, jednotky
 const F = { W:1, kW:1000, MW:1_000_000 };
 const toNumber = (s) => {
   if (s == null) return NaN;
@@ -28,19 +25,15 @@ const toNumber = (s) => {
 };
 const formatComma = (num, digits=3) =>
   Number(num).toFixed(digits).replace(/\.?0+$/,'').replace('.', ',');
-const fmtW = (w) => {
-  const num = (w>=1_000_000) ? (w/1_000_000) : (w>=1000) ? (w/1000) : w;
-  const unit = (w>=1_000_000) ? 'MW' : (w>=1000) ? 'kW' : 'W';
-  return formatComma(num) + ' ' + unit;
-};
 const unitize = (w)=> w>=1_000_000? {v:w/1_000_000,u:'MW'} : w>=1000? {v:w/1000,u:'kW'} : {v:w,u:'W'};
+const fmtW = (w)=>{ const u=unitize(w); return formatComma(u.v)+' '+u.u; };
 
-// ——— Stav ———
+// ——— stav ———
 let step = 0;
 let problem = null;
 let stats = { ok:0, err:0, accSum:0, accN:0 };
 
-// ——— Reálné rozsahy ———
+// ——— realistické rozsahy ———
 const DEVICES = [
   {id:'zarovka', name:'Žárovka',      p0W:[5,150],              eta:[5,25]},
   {id:'ledka',   name:'LED žárovka',  p0W:[3,30],               eta:[25,45]},
@@ -52,29 +45,30 @@ const pick = (min,max)=> min + Math.random()*(max-min);
 const pickInt = (min,max)=> Math.round(pick(min,max));
 const choose = (arr)=> arr[Math.floor(Math.random()*arr.length)];
 
-// ——— Generování úlohy ———
+// ——— generování ———
 function makeProblem(){
-  const dev = choose(DEVICES);
-  const type = choose(['eta','P','P0']); // neznámá veličina
-  const P0W = pick(dev.p0W[0], dev.p0W[1]);
-  const eta = pickInt(dev.eta[0], dev.eta[1]); // celé %
-  const PW  = P0W * (eta/100);
+  const dev  = choose(DEVICES);
+  const type = choose(['eta','P','P0']); // neznámá
+  const P0W  = pick(dev.p0W[0], dev.p0W[1]);
+  const eta  = pickInt(dev.eta[0], dev.eta[1]); // v %
+  const PW   = P0W * (eta/100);
+
   const P0 = unitize(P0W), P = unitize(PW);
 
   let text="", ask="";
   if(type==='eta'){
     text = `${dev.name} odebírá příkon P₀ = ${formatComma(P0.v)} ${P0.u}. Užitečný výkon je P = ${formatComma(P.v)} ${P.u}. Urči účinnost zařízení.`;
-    ask  = 'Vypočítej účinnost η v procentech.';
+    ask = 'Vypočítej účinnost η v procentech.';
   } else if(type==='P'){
     text = `${dev.name} pracuje s účinností η = ${eta} %. Odebírá příkon P₀ = ${formatComma(P0.v)} ${P0.u}. Urči užitečný výkon P.`;
-    ask  = 'Vypočítej P (užitečný výkon).';
+    ask = 'Vypočítej P (užitečný výkon).';
   } else {
     text = `${dev.name} má účinnost η = ${eta} %. Dodává užitečný výkon P = ${formatComma(P.v)} ${P.u}. Urči celkový příkon P₀.`;
-    ask  = 'Vypočítej P₀ (celkový příkon).';
+    ask = 'Vypočítej P₀ (celkový příkon).';
   }
 
   const p = {device:dev, type, P0W, PW, eta, P0, P, text, ask};
-  log("Vygenerovaná úloha:", JSON.parse(JSON.stringify(p)));
+  log('Vygenerovaná úloha:', JSON.parse(JSON.stringify(p)));
   return p;
 }
 
@@ -82,14 +76,17 @@ function makeProblem(){
 function setStepVisual(){
   document.querySelectorAll('.step').forEach((el,i)=> el.classList.toggle('active', i===step));
   const back = $('#btnBack'), next = $('#btnNext');
-  if (!back) warn("Nenalezen #btnBack"); else back.disabled = (step===0);
-  if (!next) warn("Nenalezen #btnNext"); else next.disabled = (step===3);
+  if (!back) warn('Nenalezen #btnBack'); else back.disabled = (step===0);
+  if (!next) warn('Nenalezen #btnNext'); else next.disabled = (step===3);
 }
+
 function renderAside(){
   const zad = $('#zadaniText'), kb = $('#knownBox');
-  if (!zad) warn("Nenalezen #zadaniText");
-  if (!kb)  warn("Nenalezen #knownBox");
+  if (!zad) warn('Nenalezen #zadaniText');
+  if (!kb)  warn('Nenalezen #knownBox');
+
   if (zad) zad.textContent = problem ? `${problem.text}\n\nÚkol: ${problem.ask}` : '';
+
   if (kb && problem){
     const known = [
       (problem.type!=='P0') ? `P₀ = ${formatComma(problem.P0.v)} ${problem.P0.u}` : `P₀ = ?`,
@@ -101,19 +98,22 @@ function renderAside(){
 }
 
 function render(){
-  log("render(step)", step);
-  setStepVisual(); renderAside();
-  const screen = $('#screen');
-  if (!screen){ warn("Nenalezen #screen – render stop"); return; }
-  screen.innerHTML='';
+  log('render(step)', step);
+  setStepVisual();
+  renderAside();
+
+  // !!! dříve #screen → nyní #content
+  const content = $('#content');
+  if (!content){ warn('Nenalezen #content – render stop'); return; }
+  content.innerHTML='';
 
   if (step===0){
-    screen.innerHTML = `<h2>1. Zadání</h2><p class="small muted">Prostuduj zadání vlevo. Pokračuj na Zápis.</p>`;
+    content.innerHTML = `<h2>1. Zadání</h2><p class="small">Prostuduj zadání vlevo. Pokračuj na Zápis.</p>`;
     return;
   }
 
   if (step===1){
-    screen.innerHTML = `
+    content.innerHTML = `
       <h2>2. Zápis</h2>
       <div class="grid2">
         <div>
@@ -137,11 +137,11 @@ function render(){
           <input id="etaWrite" class="input" type="text" inputmode="decimal" placeholder="např. 75">
         </div>
       </div>
-      <p class="small muted">Opíšete pouze <b>dané</b> hodnoty ze zadání. Neznámé nevyplňujte.</p>
+      <p class="small">Opíšete pouze <b>dané</b> hodnoty ze zadání. Neznámé nevyplňujte.</p>
       <div id="writeMsg" class="small"></div>`;
 
     const p0U = $('#p0Unit'), pU = $('#pUnit'), p0V = $('#p0Val'), pV = $('#pVal'), eW = $('#etaWrite');
-    if (!p0U||!pU||!p0V||!pV||!eW) warn("Zápis – chybí některé prvky", {p0U, pU, p0V, pV, eW});
+    if (!p0U||!pU||!p0V||!pV||!eW) warn('Zápis – chybí některé prvky', {p0U, pU, p0V, pV, eW});
 
     if (p0U) p0U.value = problem.P0.u;
     if (pU)  pU.value  = problem.P.u;
@@ -150,7 +150,7 @@ function render(){
     if (eW)  eW.placeholder  = (problem.type==='eta')? '?' : String(problem.eta);
 
     const checkWrite = ()=>{
-      const box = $('#writeMsg'); if (!box){ warn("Chybí #writeMsg"); return false; }
+      const box = $('#writeMsg'); if (!box){ warn('Chybí #writeMsg'); return false; }
       let ok=true, msg=[];
 
       // P₀
@@ -177,7 +177,7 @@ function render(){
 
       box.innerHTML = ok ? '<span class="success">✅ Zápis odpovídá zadání.</span>'
                          : '<span class="error">❌ '+msg.join(' ')+'</span>';
-      log("live-check Zápis:", {ok, msg, vP0, uP0, vP, uP, vEta});
+      log('live-check Zápis:', {ok, msg, vP0, uP0, vP, uP, vEta});
       return ok;
     };
     ['input','change','keyup'].forEach(ev=>{
@@ -241,14 +241,15 @@ function render(){
           <select id="p0CalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
         </div>`;
     }
-    screen.innerHTML = `<h2>3. Výpočet</h2>${inner}<div id="calcMsg" class="small"></div>`;
+    const content = $('#content');
+    content.innerHTML = `<h2>3. Výpočet</h2>${inner}<div id="calcMsg" class="small"></div>`;
     if ($('#pCalcUnit'))  $('#pCalcUnit').value  = problem.P.u;
     if ($('#p0CalcUnit')) $('#p0CalcUnit').value = problem.P0.u;
 
     // vkládání symbolů + auto η
     document.querySelectorAll('.inline-buttons button').forEach(b=>{
       b.addEventListener('click', ()=>{
-        const f = $('#formula'); if(!f){ warn("Chybí #formula"); return; }
+        const f = $('#formula'); if(!f){ warn('Chybí #formula'); return; }
         const ins = b.getAttribute('data-ins') || '';
         const pos = f.selectionStart || f.value.length;
         f.value = (f.value.slice(0,pos) + ins + f.value.slice(pos));
@@ -266,7 +267,7 @@ function render(){
       if (problem.type==='P0')  ok = (f==='P₀=P/η' || f==='P₀=P:(η:100)');
       box.innerHTML = ok ? '<span class="success">✅ Vzorec v pořádku.</span>' :
                            '<span class="error">❌ Zapiš správný vzorec (viz nápověda).</span>';
-      log("live-check Vzorec:", f, {ok});
+      log('live-check Vzorec:', f, {ok});
       return ok;
     }
     if (formulaEl){
@@ -292,7 +293,8 @@ function render(){
     const unitSuggestion = (problem.type==='eta') ? '%' :
       (problem.type==='P')  ? problem.P.u : problem.P0.u;
 
-    screen.innerHTML = `
+    const content = $('#content');
+    content.innerHTML = `
       <h2>4. Odpověď</h2>
       <div class="badge ok"><b>Zápis:</b> ${zapis}</div>
       <label>Šablona odpovědi</label>
@@ -307,6 +309,7 @@ function render(){
   }
 }
 
+// ——— statistiky ———
 function setStats(){
   const ok=$('#okCount'), er=$('#errCount'), av=$('#avgAcc');
   if (ok) ok.textContent = stats.ok;
@@ -314,13 +317,15 @@ function setStats(){
   if (av) av.textContent = stats.accN ? (stats.accSum/stats.accN).toFixed(1).replace('.', ',')+' %' : '–';
 }
 
+// ——— kontrola kroků ———
 function check(){
-  log("check(step)", step);
+  log('check(step)', step);
+
   if (step===1){
     const p0v=$('#p0Val'), p0u=$('#p0Unit');
     const pv=$('#pVal'),   pu=$('#pUnit');
     const et=$('#etaWrite');
-    const box=$('#writeMsg'); if (!box){ warn("Chybí #writeMsg"); return false; }
+    const box=$('#writeMsg'); if (!box){ warn('Chybí #writeMsg'); return false; }
 
     let ok=true, msg=[];
 
@@ -343,12 +348,12 @@ function check(){
 
     box.innerHTML = ok ? '<span class="success">✅ Zápis odpovídá zadání.</span>'
                        : '<span class="error">❌ '+msg.join(' ')+'</span>';
-    log("check Zápis:", {ok, msg});
+    log('check Zápis:', {ok, msg});
     return ok;
   }
 
   if (step===2){
-    const tol=0.005; const box=$('#calcMsg'); if(!box){ warn("Chybí #calcMsg"); return false; }
+    const tol=0.005; const box=$('#calcMsg'); if(!box){ warn('Chybí #calcMsg'); return false; }
 
     const formulaEl = $('#formula'); const f = formulaEl ? formulaEl.value.replace(/\s+/g,'') : '';
     let goodFormula=false, ok=false, acc=0, msg='';
@@ -384,13 +389,13 @@ function check(){
     box.innerHTML = ok ? `<span class="success">${msg}</span>` : `<span class="error">${msg}</span>`;
     if (ok){ stats.ok++; stats.accSum += acc; stats.accN++; } else { stats.err++; }
     setStats();
-    log("check Výpočet:", {goodFormula, ok, msg});
+    log('check Výpočet:', {goodFormula, ok, msg});
     return ok;
   }
 
   if (step===3){
     const ans = $('#ansVal'), unit = $('#ansUnit'), box = $('#ansMsg');
-    if (!ans||!unit||!box){ warn("Chybí ans prvky"); return false; }
+    if (!ans||!unit||!box){ warn('Chybí ans prvky'); return false; }
     const txt = (ans.value||'').trim();
     const hasNum = txt !== '' && isFinite(toNumber(txt));
     const valueStr = (unit.value === '%')
@@ -399,18 +404,19 @@ function check(){
     box.innerHTML = hasNum
       ? `<span class="success">✅ Odpověď dopsána. Vzor: <i>${valueStr}</i></span>`
       : `<span class="error">❌ Doplň číselný výsledek (s desetinnou čárkou) a zvol jednotku.</span>`;
-    log("check Odpověď:", {hasNum, txt, unit: unit.value});
+    log('check Odpověď:', {hasNum, txt, unit: unit.value});
     return hasNum;
   }
+
   return true;
 }
 
-// ——— Ovládání (s logy kliknutí) ———
+// ——— ovládání ———
 function wire(){
   const on = (id, fn)=>{
     const el = $(id);
-    if (!el) { warn("wire: nenalezen", id); return; }
-    el.addEventListener('click', (e)=>{ log("klik", id); fn(e); });
+    if (!el) { warn('wire: nenalezen', id); return; }
+    el.addEventListener('click', (e)=>{ log('klik', id); fn(e); });
   };
   on('btnNew',  ()=>{ problem = makeProblem(); step=0; render(); });
   on('btnReset',()=>{ stats={ok:0,err:0,accSum:0,accN:0}; setStats(); problem = makeProblem(); step=0; render(); });
@@ -419,21 +425,15 @@ function wire(){
   on('btnCheck',()=>{ check(); });
 }
 
-// ——— Start: jistota DOMContentLoaded ———
-function init() {
-  log("init()");
-  const y = $('#year');
-  if (y) y.textContent = new Date().getFullYear();
+// ——— init ———
+function init(){
+  log('init()');
+  const y = $('#year'); if (y) y.textContent = new Date().getFullYear();
   problem = makeProblem();
   render();
   setStats();
   wire();
-  // pro ladění v konzoli
-  window.__ucinnost = {
-    get step() { return step; },
-    get problem() { return problem; },
-    stats
-  };
-  log("window.__ucinnost dostupné", window.__ucinnost);
+  // ladění:
+  window.__ucinnost = { get step(){return step;}, get problem(){return problem;}, stats };
+  log('window.__ucinnost dostupné', window.__ucinnost);
 }
-
