@@ -146,19 +146,32 @@ function setStepVisual(){
   if (!next) warn('Nenalezen #btnNext'); else next.disabled = (step===3);
 }
 function renderAside(){
-  const zad = $('#zadaniText'), kb = $('#knownBox');
+  const zad = document.getElementById('zadaniText');
+  const kb  = document.getElementById('knownBox');
+
   if (!zad) warn('Nenalezen #zadaniText');
   if (!kb)  warn('Nenalezen #knownBox');
-  if (zad) zad.textContent = problem ? `${problem.text}\n\nÚkol: ${problem.ask}` : '';
+
+  if (zad) {
+    const text = problem ? `${problem.text}\n\nÚkol: ${problem.ask}` : '';
+    zad.style.display   = 'block';
+    zad.style.visibility = 'visible';
+    // nahradíme \n -> <br> kvůli zalomení
+    zad.innerHTML = (text || '').replace(/\n/g, '<br>');
+    log('renderAside(): zapsán text, length =', (text || '').length);
+  }
+
   if (kb && problem){
     const known = [
       (problem.type!=='P0') ? `P₀ = ${formatComma(problem.P0.v)} ${problem.P0.u}` : `P₀ = ?`,
       (problem.type!=='P')  ? `P  = ${formatComma(problem.P.v)} ${problem.P.u}`   : `P  = ?`,
       (problem.type!=='eta')? `η  = ${problem.eta} %` : `η  = ?`
     ].join(' • ');
-    kb.innerHTML = `<b>Dané:</b> ${known}`;
+    kb.style.display = 'block';
+    kb.innerHTML     = `<b>Dané:</b> ${known}`;
   }
 }
+
 
 function render(){
   log('render(step)', step);
