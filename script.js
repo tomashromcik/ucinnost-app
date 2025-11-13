@@ -218,11 +218,14 @@ function render(){
 
   if (step===2){
     // Výpočet (#5, #6)
-    const zapis = [
+
+    // ZÁPIS PO ŘÁDCÍCH
+    const zapisLines = [
       (problem.type!=="P0") ? `P₀ = ${fmtComma(problem.P0.v)} ${problem.P0.u}` : "P₀ = ?",
       (problem.type!=="P")  ? `P = ${fmtComma(problem.P.v)} ${problem.P.u}`    : "P = ?",
       (problem.type!=="eta")? `η = ${problem.eta} %`                           : "η = ?",
-    ].join(" • ");
+    ];
+    const zapisHtml = zapisLines.map(l => `<div>${l}</div>`).join("");
 
     const formulaHint =
       problem.type==="eta" ? 'η = P / P₀ (povoleno i "η = P : P₀")' :
@@ -231,36 +234,81 @@ function render(){
 
     let inner = `
       <h2>3. Výpočet</h2>
-      <div class="badge wip"><b>Zápis:</b> ${zapis}</div>
+      <div class="badge wip">
+        <b>Zápis:</b><br>
+        ${zapisHtml}
+      </div>
       <hr>
+
+      <!-- TLAČÍTKA PRO VKLÁDÁNÍ SYMBOLŮ -->
+      <div class="inline-buttons" style="margin-bottom:6px">
+        <button type="button" data-ins="η">η</button>
+        <button type="button" data-ins="P">P</button>
+        <button type="button" data-ins="P₀">P₀</button>
+        <button type="button" data-ins=" · ">·</button>
+        <button type="button" data-ins=" / ">/</button>
+        <button type="button" data-ins=" : ">:</button>
+        <button type="button" data-ins=" = ">=</button>
+      </div>
+
       <label>Zapiš vzorec</label>
       <input id="formula" class="input" type="text" placeholder="${formulaHint}">
       <label>Dosaď do vzorce</label>
-      <input id="subst" class="input" type="text" placeholder="např. η = ${problem.type==="eta" ? "P / P₀" : problem.type==="P" ? "(η : 100) · P₀" : "P : (η : 100)"}">
+      <input id="subst" class="input" type="text" placeholder="např. η = P / P₀">
       <hr>
     `;
 
     if (problem.type==="eta"){
-      inner += `<label>Výsledek — η (%)</label>
-                <input id="etaVal" class="input" type="text" inputmode="decimal" placeholder="např. 75">`;
+      inner += `
+        <label>Výsledek — η (%)</label>
+        <input id="etaVal" class="input" type="text" inputmode="decimal" placeholder="např. 75">
+      `;
     } else if (problem.type==="P"){
-      inner += `<label>Výsledek — P</label>
-                <div class="row gap">
-                  <input id="pCalc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
-                  <select id="pCalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
-                </div>`;
+      inner += `
+        <label>Výsledek — P</label>
+        <div class="row gap">
+          <input id="pCalc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
+          <select id="pCalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
+        </div>
+      `;
     } else {
-      inner += `<label>Výsledek — P₀</label>
-                <div class="row gap">
-                  <input id="p0Calc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
-                  <select id="p0CalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
-                </div>`;
+      inner += `
+        <label>Výsledek — P₀</label>
+        <div class="row gap">
+          <input id="p0Calc" class="input" type="text" inputmode="decimal" placeholder="hodnota">
+          <select id="p0CalcUnit" class="input"><option>W</option><option>kW</option><option>MW</option></select>
+        </div>
+      `;
     }
 
     inner += `<div id="calcMsg" class="small muted"></div>`;
     S(inner);
 
-    // jemný live check jen kvůli odemknutí Next (správnost detailně řeší krok 4)
+    // ====== Vkládací tlačítka (η, P, P₀, …) ======
+    const formulaInput = document.getElementById("formula");
+    const substInput   = document.getElementById("subst");
+
+    function targetInput() {
+      // pokud je fokus v "Dosaď do vzorce", vkládáme tam; jinak do "Zapiš vzorec"
+      if (document.activeElement === substInput && substInput) return substInput;
+      return formulaInput;
+    }
+
+    document.querySelectorAll(".inline-buttons button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const input = targetInput();
+        if (!input) return;
+        const ins = btn.getAttribute("data-ins") || "";
+        const start = input.selectionStart ?? input.value.length;
+        const end   = input.selectionEnd ?? input.value.length;
+        input.value = input.value.slice(0,start) + ins + input.value.slice(end);
+        const pos = start + ins.length;
+        input.focus();
+        input.selectionStart = input.selectionEnd = pos;
+      });
+    });
+
+    // ====== live-check pro odemčení Next (zbytek kódu zůstává stejný) ======
     function validateCalc() {
       let ok = false;
       if (problem.type==="eta"){
@@ -278,12 +326,16 @@ function render(){
       gates.calcOk = !!ok;
       toggleNext();
     }
+
     ["input","change"].forEach(ev=>{
-      E.content.querySelectorAll("input,select").forEach(el=> el.addEventListener(ev, validateCalc));
+      E.content.querySelectorAll("input,select").forEach(el=>{
+        el.addEventListener(ev, validateCalc);
+      });
     });
     validateCalc();
     return;
   }
+
 
   if (step===3){
     // Odpověď (Zkontrolovat je tady – #7)
