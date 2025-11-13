@@ -3,6 +3,17 @@
 
 // ---------- Pomocné ----------
 const F = { W: 1, kW: 1000, MW: 1_000_000 };
+// --- obtížnost (zatím provizorní rozsahy, doladíme podle tebe) ---
+const DIFF = {
+  lehka:    { p0W: [  50,   500], eta: [60, 95] },
+  normalni: { p0W: [ 500, 50000], eta: [35, 90] },
+};
+let difficulty = 'lehka';
+
+// přísný průchod kroky + „zámky“ na Next
+const STRICT_FLOW = true;
+let gates = { writeOk: false, calcOk: false };
+
 const toNum = (s) => {
   if (s == null) return NaN;
   return Number(String(s).trim().replace(/\s+/g, "").replace(",", "."));
@@ -516,6 +527,19 @@ function wire() {
       step = 0;
       render();
     });
+  // napojení obtížnosti
+const diffSel = document.getElementById('difficulty');
+if (diffSel) {
+  diffSel.value = difficulty;
+  diffSel.addEventListener('change', () => {
+    difficulty = diffSel.value;
+    newTask(true); // vygenerovat novou
+  });
+}
+
+// automaticky vygenerovat 1. příklad
+newTask(true);
+
 }
 
 // ---------- Start ----------
