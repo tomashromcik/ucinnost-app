@@ -1,10 +1,9 @@
-// script.js — P₀/P/η cvičebnice
+// script.js — P₀ / P / η cvičebnice
 "use strict";
 
 // ---------- Pomocné ----------
 const F = { W: 1, kW: 1000, MW: 1_000_000 };
 
-// obtížnosti (zatím provizorní)
 const DIFF = {
   lehka:    { p0W: [   50,   500],   eta: [60, 95] },
   normalni: { p0W: [  500, 50000],   eta: [35, 90] },
@@ -15,6 +14,9 @@ let difficulty = "lehka";
 // přísný průchod kroky
 const STRICT_FLOW = true;
 let gates = { writeOk: false, calcOk: false };
+
+// stav zápisu z kroku 2 (použijeme ve Výpočtu)
+let writeState = null;
 
 const toNum = (s) => {
   if (s == null) return NaN;
@@ -37,7 +39,6 @@ const fmtW = (w) => {
   return `${fmtComma(u.v)} ${u.u}`;
 };
 
-// reálné rozsahy
 const DEVICES = [
   { id: "zarovka", name: "Žárovka",      p0W: [5, 150],               eta: [5, 25] },
   { id: "ledka",   name: "LED žárovka",  p0W: [3, 30],                eta: [25, 45] },
@@ -106,6 +107,7 @@ function renderAside() {
     E.knownBox.textContent   = "";
     return;
   }
+
   const known = [
     problem.type !== "P0"
       ? `P₀ = ${fmtComma(problem.P0.v)} ${problem.P0.u}`
@@ -122,20 +124,16 @@ function renderAside() {
   E.knownBox.innerHTML   = `<b>Dané:</b> ${known}`;
 }
 
-// řádek pro zápis (step 1)
-function writeRow(id, label, placeholder, showUnit = true) {
-  const unitSelect = showUnit
-    ? `<select id="${id}Unit" class="input">
-         <option value="">Vyber</option>
-         <option>W</option><option>kW</option><option>MW</option>
-       </select>`
-    : "";
-
+// řádek pro P₀/P v Zápisu
+function writeRowPower(id, label, placeholder) {
   return `
     <div class="row wrap gap" style="align-items:center">
       <label class="small" style="min-width:7rem">${label}</label>
       <input id="${id}Val" class="input" type="text" inputmode="decimal" placeholder="${placeholder}">
-      ${unitSelect}
+      <select id="${id}Unit" class="input">
+        <option value="">Vyber</option>
+        <option>W</option><option>kW</option><option>MW</option>
+      </select>
       <label class="small" style="display:inline-flex;gap:.4rem;align-items:center">
         <input id="${id}Chk" type="checkbox"> hledaná veličina
       </label>
@@ -163,9 +161,17 @@ function render() {
   });
 
   if (E.btnBack) E.btnBack.disabled = step === 0;
-  if (E.btnNext) E.btnNext.disabled = step === 3 && !STRICT_FLOW;
 
-  // krok 0 – jen info
+  // viditelnost tlačítka ZKONTROLOVAT
+  if (E.btnCheck) {
+    if (step === 2 || step === 3) {
+      E.btnCheck.style.display = "";
+    } else {
+      E.btnCheck.style.display = "none";
+    }
+  }
+
+  // krok 0 – Zadání
   if (step === 0) {
     gates.writeOk = false;
     gates.calcOk  = false;
@@ -177,102 +183,199 @@ function render() {
     return;
   }
 
-  // krok 1 – ZÁPIS
+  // krok 1 – Zápis
   if (step === 1) {
     gates.calcOk = false;
+
     S(`
       <h2>2. Zápis</h2>
-      ${writeRow("p0",  "P₀ (příkon)",        "111")}
-      ${writeRow("p",   "P (užitečný výkon)", "111")}
-      ${writeRow("eta", "η (účinnost v %)",   "např. 75", false)}
+      ${writeRowPower("p0", "P₀ (příkon)", "111")}
+      ${writeRowPower("p",  "P (užitečný výkon)", "111")}
+      <div class="row wrap gap" style="align-items:center">
+        <label class="small" style="min-width:7rem">η (účinnost)</label>
+        <input id="etaPct" class="input" type="text" inputmode="decimal" placeholder="např. 75">
+        <span>% =</span>
+        <input id="etaDec" class="input" type="text" inputmode="decimal" placeholder="např. 0,75">
+        <label class="small" style="display:inline-flex;gap:.4rem;align-items:center">
+          <input id="etaChk" type="checkbox"> hledaná veličina
+        </label>
+      </div>
       <div id="writeMsg" class="small muted"></div>
     `);
 
-    const W = {
-      p0:  { chk: document.getElementById("p0Chk"),  val: document.getElementById("p0Val"),  unit: document.getElementById("p0Unit") },
-      p:   { chk: document.getElementById("pChk"),   val: document.getElementById("pVal"),   unit: document.getElementById("pUnit") },
-      eta: { chk: document.getElementById("etaChk"), val: document.getElementById("etaVal"), unit: null },
-    };
+    // DOM prvky
+    const p0Val  = document.getElementById("p0Val");
+    const p0Unit = document.getElementById("p0Unit");
+    const p0Chk  = document.getElementById("p0Chk");
 
-    function setRowState(row, defPlaceholder) {
-      const isUnknown = row.chk && row.chk.checked;
-      if (!row.val) return;
-      if (isUnknown) {
-        row.val.value = "";
-        row.val.disabled = true;
-        row.val.placeholder = "?";
-        if (row.unit) {
-          row.unit.value = "";
-          row.unit.disabled = true;
-        }
+    const pVal  = document.getElementById("pVal");
+    const pUnit = document.getElementById("pUnit");
+    const pChk  = document.getElementById("pChk");
+
+    const etaPct = document.getElementById("etaPct");
+    const etaDec = document.getElementById("etaDec");
+    const etaChk = document.getElementById("etaChk");
+
+    const writeMsg = document.getElementById("writeMsg");
+
+    function setRowStatePower(valEl, unitEl, chkEl, defaultPlaceholder) {
+      const unknown = chkEl.checked;
+      if (unknown) {
+        valEl.value = "";
+        valEl.disabled = true;
+        valEl.placeholder = "?";
+        unitEl.disabled = false;   // hledaná -> zadává se jen jednotka
       } else {
-        row.val.disabled = false;
-        row.val.placeholder = defPlaceholder;
-        if (row.unit) row.unit.disabled = false;
+        valEl.disabled = false;
+        valEl.placeholder = defaultPlaceholder;
+        unitEl.disabled = false;
       }
     }
 
-    setRowState(W.p0, "111");
-    setRowState(W.p, "111");
-    setRowState(W.eta, "např. 75");
+    function setRowStateEta() {
+      const unknown = etaChk.checked;
+      if (unknown) {
+        etaPct.value = "";
+        etaDec.value = "";
+        etaPct.disabled = true;
+        etaDec.disabled = true;
+        etaPct.placeholder = "?";
+        etaDec.placeholder = "?";
+      } else {
+        etaPct.disabled = false;
+        etaDec.disabled = false;
+        etaPct.placeholder = "např. 75";
+        etaDec.placeholder = "např. 0,75";
+      }
+    }
+
+    setRowStatePower(p0Val, p0Unit, p0Chk, "111");
+    setRowStatePower(pVal, pUnit, pChk, "111");
+    setRowStateEta();
 
     function validateWrite() {
-      const box = document.getElementById("writeMsg");
-      if (!box) return;
+      const unknowns = [];
+      if (p0Chk.checked)  unknowns.push("p0");
+      if (pChk.checked)   unknowns.push("p");
+      if (etaChk.checked) unknowns.push("eta");
 
-      const unknown = ["p0", "p", "eta"].filter((k) => W[k].chk && W[k].chk.checked);
-      if (unknown.length !== 1) {
+      if (unknowns.length !== 1) {
         gates.writeOk = false;
-        box.textContent = "Zaškrtni přesně jednu hledanou veličinu.";
+        writeMsg.textContent = "Zaškrtni přesně jednu hledanou veličinu.";
         toggleNext();
         return;
       }
 
-      let okKnown = true;
-      ["p0", "p", "eta"].forEach((k) => {
-        const r = W[k];
-        if (!r.val) return;
-        if (r.chk && r.chk.checked) return; // hledaná
-        const v = toNum(r.val.value);
-        if (!isFinite(v)) okKnown = false;
-        if (r.unit) {
-          const u = r.unit.value;
-          if (!["W", "kW", "MW"].includes(u)) okKnown = false;
-        }
-      });
+      let ok = true;
+      const tol = 1e-3;
 
-      gates.writeOk = okKnown;
-      box.textContent = okKnown
-        ? "Zápis formálně v pořádku. (Správnost se vyhodnotí později.)"
-        : "Doplň číselné hodnoty a jednotky.";
+      // P₀
+      if (!p0Chk.checked) {
+        const v = toNum(p0Val.value);
+        const u = p0Unit.value;
+        if (!isFinite(v) || !["W","kW","MW"].includes(u)) ok = false;
+      } else {
+        // hledaná P₀ – vyžadujeme aspoň jednotku
+        if (!["W","kW","MW"].includes(p0Unit.value)) ok = false;
+      }
+
+      // P
+      if (!pChk.checked) {
+        const v = toNum(pVal.value);
+        const u = pUnit.value;
+        if (!isFinite(v) || !["W","kW","MW"].includes(u)) ok = false;
+      } else {
+        if (!["W","kW","MW"].includes(pUnit.value)) ok = false;
+      }
+
+      // η
+      if (!etaChk.checked) {
+        const pct = toNum(etaPct.value);
+        const dec = toNum(etaDec.value);
+        if (!isFinite(pct) || !isFinite(dec)) ok = false;
+        else {
+          if (Math.abs(dec - pct / 100) > tol) ok = false;
+        }
+      }
+
+      gates.writeOk = ok;
+      writeMsg.textContent = ok
+        ? "Zápis je formálně v pořádku (η je převedena na desetinné číslo)."
+        : "Doplň hodnoty, jednotky a zkontroluj převod η na desetinné číslo.";
+
+      // uložíme stav pro Shrnutí zápisu ve Výpočtu
+      if (ok) {
+        writeState = {
+          p0: {
+            unknown: p0Chk.checked,
+            value:  p0Chk.checked ? null : toNum(p0Val.value),
+            unit:   p0Unit.value || ""
+          },
+          p: {
+            unknown: pChk.checked,
+            value:  pChk.checked ? null : toNum(pVal.value),
+            unit:   pUnit.value || ""
+          },
+          eta: {
+            unknown: etaChk.checked,
+            pct:  etaChk.checked ? null : toNum(etaPct.value),
+            dec:  etaChk.checked ? null : toNum(etaDec.value)
+          }
+        };
+      } else {
+        writeState = null;
+      }
+
       toggleNext();
     }
 
-    ["p0", "p", "eta"].forEach((k) => {
-      const r = W[k];
-      if (r.chk)  r.chk.addEventListener("change", () => { setRowState(r, k==="eta" ? "např. 75" : "111"); validateWrite(); });
-      if (r.val)  r.val.addEventListener("input", validateWrite);
-      if (r.unit) r.unit.addEventListener("change", validateWrite);
-    });
+    [p0Chk, p0Val, p0Unit, pChk, pVal, pUnit, etaChk, etaPct, etaDec]
+      .forEach((el) => {
+        if (!el) return;
+        el.addEventListener("change", () => {
+          if (el === p0Chk || el === p0Val || el === p0Unit)
+            setRowStatePower(p0Val, p0Unit, p0Chk, "111");
+          if (el === pChk || el === pVal || el === pUnit)
+            setRowStatePower(pVal, pUnit, pChk, "111");
+          if (el === etaChk || el === etaPct || el === etaDec)
+            setRowStateEta();
+          validateWrite();
+        });
+        el.addEventListener("input", () => {
+          validateWrite();
+        });
+      });
 
     validateWrite();
     return;
   }
 
-  // krok 2 – VÝPOČET
+  // krok 2 – Výpočet
   if (step === 2) {
-    const zapisLines = [
-      problem.type !== "P0"
-        ? `P₀ = ${fmtComma(problem.P0.v)} ${problem.P0.u}`
-        : "P₀ = ?",
-      problem.type !== "P"
-        ? `P = ${fmtComma(problem.P.v)} ${problem.P.u}`
-        : "P = ?",
-      problem.type !== "eta"
-        ? `η = ${problem.eta} %`
-        : "η = ?",
-    ];
-    const zapisHtml = zapisLines.join("<br>");
+    // Shrnutí zápisu z writeState
+    const lines = [];
+    if (writeState) {
+      // P₀
+      if (writeState.p0.unknown) {
+        lines.push(`P₀ = ? ${writeState.p0.unit}`.trim());
+      } else {
+        lines.push(`P₀ = ${fmtComma(writeState.p0.value)} ${writeState.p0.unit}`.trim());
+      }
+      // P
+      if (writeState.p.unknown) {
+        lines.push(`P = ? ${writeState.p.unit}`.trim());
+      } else {
+        lines.push(`P = ${fmtComma(writeState.p.value)} ${writeState.p.unit}`.trim());
+      }
+      // η
+      if (writeState.eta.unknown) {
+        lines.push("η = ?");
+      } else {
+        lines.push(
+          `η = ${fmtComma(writeState.eta.pct)} % = ${fmtComma(writeState.eta.dec)}`
+        );
+      }
+    }
 
     const formulaHint =
       problem.type === "eta"
@@ -284,7 +387,8 @@ function render() {
     let inner = `
       <h2>3. Výpočet</h2>
       <div class="badge wip">
-        <b>Zápis:</b><br>${zapisHtml}
+        <b>Shrnutí zápisu</b><br>
+        ${lines.join("<br>")}
       </div>
       <hr>
       <div class="inline-buttons" style="margin-bottom:6px">
@@ -335,7 +439,6 @@ function render() {
     inner += `<div id="calcMsg" class="small muted"></div>`;
     S(inner);
 
-    // vložení symbolů do aktivního pole (formula/subst)
     const formulaInput = document.getElementById("formula");
     document.querySelectorAll(".inline-buttons button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -354,11 +457,6 @@ function render() {
       });
     });
 
-    if (document.getElementById("pCalcUnit"))
-      document.getElementById("pCalcUnit").value = "";
-    if (document.getElementById("p0CalcUnit"))
-      document.getElementById("p0CalcUnit").value = "";
-
     function validateCalc() {
       let ok = false;
       if (problem.type === "eta") {
@@ -367,26 +465,25 @@ function render() {
       } else if (problem.type === "P") {
         const v = toNum(document.getElementById("pCalc")?.value);
         const u = document.getElementById("pCalcUnit")?.value;
-        ok = isFinite(v) && ["W", "kW", "MW"].includes(u || "");
+        ok = isFinite(v) && ["W","kW","MW"].includes(u || "");
       } else {
         const v = toNum(document.getElementById("p0Calc")?.value);
         const u = document.getElementById("p0CalcUnit")?.value;
-        ok = isFinite(v) && ["W", "kW", "MW"].includes(u || "");
+        ok = isFinite(v) && ["W","kW","MW"].includes(u || "");
       }
       gates.calcOk = !!ok;
       toggleNext();
     }
 
-    ["input", "change"].forEach((ev) => {
-      E.content.querySelectorAll("input,select").forEach((el) =>
-        el.addEventListener(ev, validateCalc)
-      );
+    E.content.querySelectorAll("input,select").forEach((el) => {
+      el.addEventListener("input", validateCalc);
+      el.addEventListener("change", validateCalc);
     });
     validateCalc();
     return;
   }
 
-  // krok 3 – ODPověď
+  // krok 3 – Odpověď
   if (step === 3) {
     const zapis = [
       problem.type !== "P0"
@@ -448,7 +545,7 @@ function render() {
   }
 }
 
-// ---------- Kontrola + statistika ----------
+// ---------- Statistika + Kontrola ----------
 function setStats() {
   if (E.okCount)  E.okCount.textContent  = String(stats.ok);
   if (E.errCount) E.errCount.textContent = String(stats.err);
@@ -459,10 +556,9 @@ function setStats() {
 }
 
 function doCheck() {
-  // tady ponecháme logiku jen pro krok 2 a 3 (krok 1 kontroluješ živě)
   if (!problem) return;
 
-  // krok 2 – vzorec + výpočet
+  // krok 2 – výpočet
   if (step === 2) {
     const box = document.getElementById("calcMsg");
     if (!box) return;
@@ -577,6 +673,7 @@ function newTask(keepStats = true) {
   step    = 0;
   gates.writeOk = false;
   gates.calcOk  = false;
+  writeState = null;
   if (!keepStats) {
     stats = { ok: 0, err: 0, accSum: 0, accN: 0 };
     setStats();
@@ -605,21 +702,20 @@ function wire() {
 
   if (E.btnNew)
     E.btnNew.addEventListener("click", () => {
-      newTask(true); // zachovej statistiku
+      newTask(true);
     });
 
   if (E.btnReset)
     E.btnReset.addEventListener("click", () => {
-      newTask(false); // resetuj statistiku
+      newTask(false);
     });
 
-  // obtížnost
   const diffSel = document.getElementById("difficulty");
   if (diffSel) {
     diffSel.value = difficulty;
     diffSel.addEventListener("change", () => {
       difficulty = diffSel.value || "lehka";
-      newTask(true); // jen nová úloha, statistika zůstává
+      newTask(true);
     });
   }
 }
