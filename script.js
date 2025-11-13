@@ -216,8 +216,8 @@ function render(){
     return;
   }
 
-  if (step===2){
-    // Výpočet (#5, #6)
+    if (step===2){
+    // 3. Výpočet
 
     // ZÁPIS PO ŘÁDCÍCH
     const zapisLines = [
@@ -228,9 +228,11 @@ function render(){
     const zapisHtml = zapisLines.map(l => `<div>${l}</div>`).join("");
 
     const formulaHint =
-      problem.type==="eta" ? 'η = P / P₀ (povoleno i "η = P : P₀")' :
-      problem.type==="P"   ? 'P = η · P₀ (η napiš jako 0,75) nebo "P = (η : 100) · P₀"' :
-                             'P₀ = P / (η : 100) nebo "P₀ = P : (η : 100)"';
+      problem.type==="eta"
+        ? 'η = P / P₀ (povoleno i „η = P : P₀“) '
+        : problem.type==="P"
+        ? 'P = η · P₀ (η napiš jako 0,75) nebo „P = (η : 100) · P₀“'
+        : 'P₀ = P / (η : 100) nebo „P₀ = P : (η : 100)“';
 
     let inner = `
       <h2>3. Výpočet</h2>
@@ -284,29 +286,64 @@ function render(){
     inner += `<div id="calcMsg" class="small muted"></div>`;
     S(inner);
 
-    // ====== Vkládací tlačítka (η, P, P₀, …) ======
+    // ====== VKLÁDACÍ TLAČÍTKA (η, P, P₀, …) S FUNGUJÍCÍM FOCUSEM ======
     const formulaInput = document.getElementById("formula");
     const substInput   = document.getElementById("subst");
 
-    function targetInput() {
-      // pokud je fokus v "Dosaď do vzorce", vkládáme tam; jinak do "Zapiš vzorec"
-      if (document.activeElement === substInput && substInput) return substInput;
-      return formulaInput;
+    // budeme si pamatovat poslední „aktivní“ pole
+    let activeField = formulaInput || null;
+    if (formulaInput){
+      formulaInput.addEventListener("focus", () => { activeField = formulaInput; });
+      formulaInput.addEventListener("click", () => { activeField = formulaInput; });
+    }
+    if (substInput){
+      substInput.addEventListener("focus", () => { activeField = substInput; });
+      substInput.addEventListener("click", () => { activeField = substInput; });
     }
 
     document.querySelectorAll(".inline-buttons button").forEach(btn => {
       btn.addEventListener("click", () => {
-        const input = targetInput();
+        const input = activeField || formulaInput;
         if (!input) return;
         const ins = btn.getAttribute("data-ins") || "";
         const start = input.selectionStart ?? input.value.length;
-        const end   = input.selectionEnd ?? input.value.length;
+        const end   = input.selectionEnd   ?? input.value.length;
         input.value = input.value.slice(0,start) + ins + input.value.slice(end);
         const pos = start + ins.length;
         input.focus();
         input.selectionStart = input.selectionEnd = pos;
       });
     });
+
+    // ====== live-check jen kvůli odemčení Next (logika může zůstat stejná) ======
+    function validateCalc() {
+      let ok = false;
+      if (problem.type==="eta"){
+        const v = toNum(document.getElementById("etaVal")?.value);
+        ok = isFinite(v);
+      } else if (problem.type==="P"){
+        const v = toNum(document.getElementById("pCalc")?.value);
+        const u = document.getElementById("pCalcUnit")?.value;
+        ok = isFinite(v) && ["W","kW","MW"].includes(u||"");
+      } else {
+        const v = toNum(document.getElementById("p0Calc")?.value);
+        const u = document.getElementById("p0CalcUnit")?.value;
+        ok = isFinite(v) && ["W","kW","MW"].includes(u||"");
+      }
+      gates.calcOk = !!ok;
+      toggleNext();
+    }
+
+    ["input","change"].forEach(ev => {
+      E.content.querySelectorAll("input,select").forEach(el => {
+        el.addEventListener(ev, validateCalc);
+      });
+    });
+    validateCalc();
+
+    return;
+  }
+
 
     // ====== live-check pro odemčení Next (zbytek kódu zůstává stejný) ======
     function validateCalc() {
